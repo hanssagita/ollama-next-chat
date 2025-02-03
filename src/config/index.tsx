@@ -1,0 +1,6 @@
+const feConfig = {
+}
+
+export {
+  feConfig
+}
