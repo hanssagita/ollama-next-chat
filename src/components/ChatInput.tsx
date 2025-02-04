@@ -2,13 +2,14 @@ import React, { useState } from "react";
 import { useChat } from "@/context/ChatContext";
 
 const ChatInput: React.FC = () => {
-  const { addMessage } = useChat();
+  const { addMessage, appendToLastMessage } = useChat();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSend = async () => {
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (input.trim() === "") return;
-    
+
     addMessage("user", input);
     setInput("");
     setLoading(true);
@@ -20,25 +21,38 @@ const ChatInput: React.FC = () => {
         body: JSON.stringify({ prompt: input }),
       });
 
-      const data = await response.json();
+      if (!response.body) throw new Error("No response body");
 
-      if (data && data.message) {
-        // const thinkStartTag = '<think>';
-        const thinkEndTag = '</think>';
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      
+      addMessage("assistant", ""); // Initialize an empty assistant message
 
-        // Find the positions of the start and end tags
-        // const startIdx = data.message.content.indexOf(thinkStartTag) + thinkStartTag.length;
-        const endIdx = data.message.content.indexOf(thinkEndTag);
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
 
-        // Extract the content within the <think> tags
-        // const think = data.message.content.slice(startIdx, endIdx).trim();
+        const chunk = decoder.decode(value, { stream: true });
 
-        // Extract the content after the </think> tag
-        const value = data.message.content.slice(endIdx + thinkEndTag.length).trim();
-        addMessage("assistant", value);
+        const parsedChunk = chunk.trim().split("\n").filter(line => line.startsWith("data: "));
+        for (const line of parsedChunk) {
+          const jsonData = line.replace("data: ", "").trim();
+          if (jsonData === "[DONE]") {
+            reader.cancel();
+            setLoading(false);
+            return;
+          }
+
+          try {
+            const parsedData = JSON.parse(jsonData);
+            appendToLastMessage(parsedData.content); // Append instead of replace
+          } catch (error) {
+            console.error("Error parsing JSON chunk:", error, jsonData);
+          }
+        }
       }
     } catch (error) {
-      console.error("Error communicating with Ollama API:", error);
+      console.error("Streaming request error:", error);
     }
 
     setLoading(false);
@@ -55,7 +69,7 @@ const ChatInput: React.FC = () => {
         disabled={loading}
       />
       <button
-        onClick={handleSend}
+        type="submit"
         className="ml-2 p-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600 disabled:bg-gray-600"
         disabled={loading}
       >

@@ -1,8 +1,13 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useChat } from "@/context/ChatContext";
 
 const ChatWindow: React.FC = () => {
   const { messages } = useChat();
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   return (
     <div className="p-4 bg-gray-900 text-white h-[500px] overflow-y-auto rounded-lg flex flex-col">
@@ -16,6 +21,7 @@ const ChatWindow: React.FC = () => {
           {msg.content}
         </div>
       ))}
+      <div ref={messagesEndRef} />
     </div>
   );
 };

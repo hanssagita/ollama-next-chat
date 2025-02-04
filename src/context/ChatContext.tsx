@@ -8,6 +8,7 @@ interface Message {
 interface ChatContextType {
   messages: Message[];
   addMessage: (role: "user" | "assistant", content: string) => void;
+  appendToLastMessage: (content: string) => void;
   clearMessages: () => void;
 }
 
@@ -20,12 +21,23 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     setMessages((prev) => [...prev, { role, content }]);
   };
 
+  const appendToLastMessage = (content: string) => {
+    setMessages((prev) => {
+      if (prev.length === 0) return prev;
+      return prev.map((msg, index) =>
+        index === prev.length - 1 && msg.role === "assistant"
+          ? { ...msg, content: msg.content + content }
+          : msg
+      );
+    });
+  };
+
   const clearMessages = () => {
     setMessages([]);
   };
 
   return (
-    <ChatContext.Provider value={{ messages, addMessage, clearMessages }}>
+    <ChatContext.Provider value={{ messages, addMessage, appendToLastMessage, clearMessages }}>
       {children}
     </ChatContext.Provider>
   );

@@ -1,19 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import ollama from "ollama"; // Ensure this package is installed and imported correctly
+import ollama from "ollama";
 
-// Define a type for the error response (optional)
-type ErrorResponse = { error: string };
-
-// If you know the shape of the response from ollama.chat, you can define it here.
-// For now, we’ll use any.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ChatResponse = any;
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<ChatResponse | ErrorResponse>
-) {
-  // Only allow POST requests
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
     return res.status(405).json({ error: "Method Not Allowed" });
@@ -22,21 +10,42 @@ export default async function handler(
   try {
     const { prompt } = req.body;
 
-    // Simple validation for prompt
     if (!prompt || typeof prompt !== "string") {
       return res.status(400).json({ error: "Invalid prompt" });
     }
-    const response = await ollama.chat({
+
+    console.log("Using model:", process.env.LLM_MODEL);
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+
+    const streamResponse = await ollama.chat({
       model: process.env.LLM_MODEL as string,
       messages: [{ role: "user", content: prompt }],
+      stream: true,
     });
 
-    // Return the response from Ollama
-    return res.status(200).json(response);
+    if (streamResponse && typeof streamResponse[Symbol.asyncIterator] === "function") {
+      for await (const chunk of streamResponse) {
+        console.log("Sending chunk to client:", chunk.message.content);
+
+        if (chunk.message?.content) {
+          res.write(`data: ${JSON.stringify({ content: chunk.message.content })}\n\n`);
+          res.flush?.(); // Force immediate data delivery
+        }
+      }
+    } else {
+      throw new Error("Ollama response is not an async generator");
+    }
+
+    res.write("data: [DONE]\n\n");
+    res.end();
   } catch (error) {
     console.error("Ollama error:", error);
-    return res
-      .status(500)
-      .json({ error: "Failed to communicate with Ollama" });
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ error: "Failed to communicate with Ollama" })}\n\n`);
+      res.end();
+    }
   }
 }
