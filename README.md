@@ -1,6 +1,7 @@
-# Next.js Project
+# Open Source Clone ChatGpt UI with Ollama
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+Made by Chatgpt and Deepseek prompts
 
 ## Getting Started
 
