@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useChat } from "@/context/ChatContext";
 
 const ChatInput: React.FC = () => {
-  const { addMessage, appendToLastMessage } = useChat();
+  const { addMessage, appendToLastMessage, constructFinalMessage } = useChat();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -39,6 +39,7 @@ const ChatInput: React.FC = () => {
           const jsonData = line.replace("data: ", "").trim();
           if (jsonData === "[DONE]") {
             reader.cancel();
+            constructFinalMessage()
             setLoading(false);
             return;
           }
