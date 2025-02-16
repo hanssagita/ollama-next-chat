@@ -60,7 +60,7 @@ const ChatInput: React.FC = () => {
   };
 
   return (
-    <form onSubmit={handleSend} className="p-4 bg-gray-800 flex rounded-lg">
+    <form onSubmit={handleSend} className="p-4 bg-gray-800 flex rounded-r-lg">
       <input
         type="text"
         value={input}

@@ -33,13 +33,14 @@ After installing Ollama, download your preferred LLM model. For example, to down
 
 ```bash
 ollama pull llama2
+ollama pull ollama run deepseek-r1:7b
 ```
 
 Replace `llama2` with the model of your choice.
 
 ### 4. Configure Environment Variables
 
-Create a `.env.local` file in the root of your project if it doesn’t exist, and add the following line:
+Create a `.env.local or .env` file in the root of your project if it doesn’t exist, and add the following line:
 
 ```ini
 LLM_MODEL=llama2

@@ -1,26 +1,34 @@
 import React from "react";
 import ChatWindow from "@/components/ChatWindow";
 import ChatInput from "@/components/ChatInput";
-import { useChat } from "@/context/ChatContext";
+import ChatroomSidebar from "@/components/ChatroomSidebar";
+import { useChatroom } from "@/context/ChatroomContext";
 
 const Chat = () => {
-  const { clearMessages } = useChat();
+  const { activeChatroomId } = useChatroom();
 
   return (
-    <div className="flex flex-col h-screen p-4 bg-gray-900 text-white">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-bold">AI Agent by {process.env.NEXT_PUBLIC_LLM_MODEL}</h1>
-        <button
-          onClick={clearMessages}
-          className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 transition-colors"
-        >
-          Clear Chat
-        </button>
+    <div className="flex h-screen">
+      <ChatroomSidebar />
+      <div className="flex-1 flex flex-col">
+        <div className="bg-gray-800 p-4">
+          <h1 className="text-xl font-bold text-white">
+            AI Agent by {process.env.NEXT_PUBLIC_LLM_MODEL}
+          </h1>
+        </div>
+        {activeChatroomId ? (
+          <>
+            <div className="flex-1 overflow-hidden">
+              <ChatWindow />
+            </div>
+            <ChatInput />
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-400">
+            Select or create a new chat to begin
+          </div>
+        )}
       </div>
-      <div className="flex-1 overflow-hidden">
-        <ChatWindow />
-      </div>
-      <ChatInput />
     </div>
   );
 };

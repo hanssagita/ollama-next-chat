@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-
-const CHAT_HISTORY_KEY = "OLLAMA_NEXT_CHAT_HISTORY";
+import { useChatroom } from "./ChatroomContext";
 
 interface Message {
   role: "user" | "assistant";
@@ -20,58 +19,81 @@ interface ChatContextType {
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export const ChatProvider = ({ children }: { children: ReactNode }) => {
-  // Initialize with empty array and update after mount
-  const [messages, setMessages] = useState<Message[]>([]);
-  
-  // Move localStorage logic to useEffect to avoid hydration mismatch
+  const [messagesByChatroom, setMessagesByChatroom] = useState<Record<string, Message[]>>({});
+  const { activeChatroomId, updateChatroomLastMessage } = useChatroom();
+
   useEffect(() => {
-    const savedMessages = localStorage.getItem(CHAT_HISTORY_KEY);
-    if (savedMessages) {
+    const savedMessages = localStorage.getItem(`CHAT_${activeChatroomId}`);
+    if (savedMessages && activeChatroomId) {
       try {
         const parsedMessages = JSON.parse(savedMessages);
-        setMessages(parsedMessages);
+        setMessagesByChatroom(prev => ({
+          ...prev,
+          [activeChatroomId]: parsedMessages
+        }));
       } catch (error) {
         console.error('Failed to parse saved messages:', error);
-        localStorage.removeItem(CHAT_HISTORY_KEY);
       }
     }
-  }, []);
+  }, [activeChatroomId]);
 
-  // Save messages to localStorage whenever they change
   useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
-    } else {
-      localStorage.removeItem(CHAT_HISTORY_KEY);
+    if (activeChatroomId) {
+      const messages = messagesByChatroom[activeChatroomId] || [];
+      if (messages.length > 0) {
+        localStorage.setItem(`CHAT_${activeChatroomId}`, JSON.stringify(messages));
+        updateChatroomLastMessage(activeChatroomId, messages[messages.length - 1]?.result || "");
+      } else {
+        localStorage.removeItem(`CHAT_${activeChatroomId}`);
+      }
     }
-  }, [messages]);
+  }, [messagesByChatroom, activeChatroomId]);
 
-  // Rest of the code remains the same
+  const messages = activeChatroomId ? messagesByChatroom[activeChatroomId] || [] : [];
+
   const addMessage = (role: "user" | "assistant", content: string) => {
+    if (!activeChatroomId) return;
     const newMessage = { role, raw: content };
-    setMessages(prev => [...prev, newMessage]);
+    setMessagesByChatroom(prev => ({
+      ...prev,
+      [activeChatroomId]: [...(prev[activeChatroomId] || []), newMessage]
+    }));
   };
 
   const appendToLastMessage = (content: string) => {
-    setMessages(prev => {
-      if (prev.length === 0) return prev;
-      return prev.map((msg, index) =>
-        index === prev.length - 1 && msg.role === "assistant"
+    if (!activeChatroomId) return;
+    setMessagesByChatroom(prev => {
+      const messages = prev[activeChatroomId] || [];
+      if (messages.length === 0) return prev;
+      
+      const updatedMessages = messages.map((msg, index) =>
+        index === messages.length - 1 && msg.role === "assistant"
           ? { ...msg, raw: (msg.raw || "") + content }
           : msg
       );
+
+      return {
+        ...prev,
+        [activeChatroomId]: updatedMessages
+      };
     });
   };
 
   const clearMessages = () => {
-    setMessages([]);
-    localStorage.removeItem(CHAT_HISTORY_KEY);
+    if (!activeChatroomId) return;
+    setMessagesByChatroom(prev => ({
+      ...prev,
+      [activeChatroomId]: []
+    }));
   };
 
   const constructFinalMessage = () => {
-    setMessages(prev =>
-      prev.map(msg => {
+    if (!activeChatroomId) return;
+    setMessagesByChatroom(prev => {
+      const messages = prev[activeChatroomId] || [];
+      const updatedMessages = messages.map(msg => {
         if (msg.role !== "assistant") return msg;
+        
         const thinkRegex = /<think>([\s\S]*?)<\/think>/;
         const hasThinkTag = thinkRegex.test(msg.raw);
         const thinkMatch = msg.raw.match(thinkRegex);
@@ -83,12 +105,23 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         
         const result = hasThinkTag ? msg.raw.replace(thinkRegex, "").trim() : msg.raw;
         return hasThinkTag ? { ...msg, thinking, result } : { ...msg, result };
-      })
-    );
+      });
+
+      return {
+        ...prev,
+        [activeChatroomId]: updatedMessages
+      };
+    });
   };
 
   return (
-    <ChatContext.Provider value={{ messages, addMessage, appendToLastMessage, clearMessages, constructFinalMessage }}>
+    <ChatContext.Provider value={{
+      messages,
+      addMessage,
+      appendToLastMessage,
+      clearMessages,
+      constructFinalMessage
+    }}>
       {children}
     </ChatContext.Provider>
   );

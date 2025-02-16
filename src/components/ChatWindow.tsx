@@ -12,7 +12,7 @@ const ChatWindow: React.FC = () => {
   }, [messages]);
 
   return (
-    <div className="p-4 bg-gray-900 text-white h-[500px] overflow-y-auto rounded-lg flex flex-col space-y-3">
+    <div className="p-4 text-white h-[500px] overflow-y-auto rounded-lg flex flex-col space-y-3 h-full">
       {messages.map((msg, index) => {
         const isUser = msg.role === "user";
         const isProcessing = !msg.result; // Show raw until result is available
