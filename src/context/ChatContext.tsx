@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+
+const CHAT_HISTORY_KEY = "OLLAMA_NEXT_CHAT_HISTORY";
 
 interface Message {
   role: "user" | "assistant";
@@ -18,54 +20,71 @@ interface ChatContextType {
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export const ChatProvider = ({ children }: { children: ReactNode }) => {
+  // Initialize with empty array and update after mount
   const [messages, setMessages] = useState<Message[]>([]);
+  
+  // Move localStorage logic to useEffect to avoid hydration mismatch
+  useEffect(() => {
+    const savedMessages = localStorage.getItem(CHAT_HISTORY_KEY);
+    if (savedMessages) {
+      try {
+        const parsedMessages = JSON.parse(savedMessages);
+        setMessages(parsedMessages);
+      } catch (error) {
+        console.error('Failed to parse saved messages:', error);
+        localStorage.removeItem(CHAT_HISTORY_KEY);
+      }
+    }
+  }, []);
 
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
+    } else {
+      localStorage.removeItem(CHAT_HISTORY_KEY);
+    }
+  }, [messages]);
+
+  // Rest of the code remains the same
   const addMessage = (role: "user" | "assistant", content: string) => {
-    setMessages((prev) => [...prev, { role, raw: content }]);
+    const newMessage = { role, raw: content };
+    setMessages(prev => [...prev, newMessage]);
   };
 
   const appendToLastMessage = (content: string) => {
-    setMessages((prev) => {
+    setMessages(prev => {
       if (prev.length === 0) return prev;
       return prev.map((msg, index) =>
         index === prev.length - 1 && msg.role === "assistant"
-          ? { ...msg, raw: (msg.raw || "") + content } // Ensure raw is not undefined
+          ? { ...msg, raw: (msg.raw || "") + content }
           : msg
       );
     });
   };
 
+  const clearMessages = () => {
+    setMessages([]);
+    localStorage.removeItem(CHAT_HISTORY_KEY);
+  };
+
   const constructFinalMessage = () => {
-    setMessages((prev) =>
-      prev.map((msg) => {
+    setMessages(prev =>
+      prev.map(msg => {
         if (msg.role !== "assistant") return msg;
-  
-        // Regex to extract content inside <think>...</think>, including newlines
         const thinkRegex = /<think>([\s\S]*?)<\/think>/;
-  
-        // Check if <think> exists in raw
         const hasThinkTag = thinkRegex.test(msg.raw);
-  
-        // If <think> exists, extract its content
         const thinkMatch = msg.raw.match(thinkRegex);
         let thinking = thinkMatch ? thinkMatch[1].trim() : undefined;
-  
-        // Ensure thinking is undefined if it is empty or just whitespace
+        
         if (!thinking || thinking.length === 0) {
           thinking = undefined;
         }
-  
-        // If <think> exists, remove it to get the final result
+        
         const result = hasThinkTag ? msg.raw.replace(thinkRegex, "").trim() : msg.raw;
-  
-        // Return message with thinking only if <think> existed, otherwise only result
         return hasThinkTag ? { ...msg, thinking, result } : { ...msg, result };
       })
     );
-  };
-
-  const clearMessages = () => {
-    setMessages([]);
   };
 
   return (
