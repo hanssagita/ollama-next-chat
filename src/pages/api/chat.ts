@@ -1,6 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import ollama from "ollama";
 
+interface ChatMessage {
+  role: string;
+  content: string;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
@@ -8,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { prompt } = req.body;
+    const { prompt, history } = req.body;
 
     if (!prompt || typeof prompt !== "string") {
       return res.status(400).json({ error: "Invalid prompt" });
@@ -20,9 +25,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
 
+    const messages: ChatMessage[] = history || [];
+    messages.push({ role: "user", content: prompt });
+
     const streamResponse = await ollama.chat({
       model: process.env.LLM_MODEL as string,
-      messages: [{ role: "user", content: prompt }],
+      messages: messages,
       stream: true,
     });
 

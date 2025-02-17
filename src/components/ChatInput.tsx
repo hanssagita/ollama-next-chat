@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useChat } from "@/context/ChatContext";
 
 const ChatInput: React.FC = () => {
-  const { addMessage, appendToLastMessage, constructFinalMessage } = useChat();
+  const { addMessage, appendToLastMessage, constructFinalMessage, getConversationHistory } = useChat();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +18,7 @@ const ChatInput: React.FC = () => {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: input }),
+        body: JSON.stringify({ prompt: input, history: getConversationHistory() }),
       });
 
       if (!response.body) throw new Error("No response body");
@@ -26,8 +26,7 @@ const ChatInput: React.FC = () => {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       
-      addMessage("assistant", ""); // Initialize an empty assistant message
-
+      addMessage("assistant", "");
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;

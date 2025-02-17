@@ -14,6 +14,7 @@ interface ChatContextType {
   appendToLastMessage: (content: string) => void;
   clearMessages: () => void;
   constructFinalMessage: () => void;
+  getConversationHistory: () => { role: string; content: string; }[];
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -114,13 +115,23 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const getConversationHistory = () => {
+    if (!activeChatroomId) return [];
+    const messages = messagesByChatroom[activeChatroomId] || [];
+    return messages.map(msg => ({
+      role: msg.role,
+      content: msg.result || msg.raw
+    }));
+  };
+
   return (
     <ChatContext.Provider value={{
       messages,
       addMessage,
       appendToLastMessage,
       clearMessages,
-      constructFinalMessage
+      constructFinalMessage,
+      getConversationHistory
     }}>
       {children}
     </ChatContext.Provider>
